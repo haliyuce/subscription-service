@@ -25,7 +25,7 @@ import java.util.List;
         SubscriptionService.class,
         ProductService.class
 })
-public class SubscriptionServiceTest {
+public class SubscriptionServiceITest {
 
     @Autowired
     private ProductService productService;
