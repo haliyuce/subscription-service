@@ -88,11 +88,13 @@ public class ProductServiceITest {
                 .description("some desc")
                 .name("cool product")
                 .period(Period.ofMonths(3))
-                .price(BigDecimal.TEN)
+                .price(BigDecimal.ONE)
                 .taxRate(BigDecimal.ONE)
                 .build();
         var product2 = product1.toBuilder()
                 .description("some other")
+                .period(Period.ofMonths(5))
+                .price(BigDecimal.TEN)
                 .build();
         var persistedProducts = productRepository.saveAll(List.of(product1, product2));
 

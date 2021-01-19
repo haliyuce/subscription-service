@@ -15,17 +15,12 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
 import java.math.BigDecimal;
 import java.time.Period;
 import java.util.List;
 
-
-@WebMvcTest
-@Import({
-        ProductController.class
-})
+@WebMvcTest(ProductController.class)
 @AutoConfigureMockMvc
 class ProductControllerITest {
 

@@ -13,19 +13,23 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.Period;
+import java.time.*;
 import java.util.List;
 
 @DataJpaTest
 @Import({
         SubscriptionService.class,
-        ProductService.class
+        ProductService.class,
+        TestConfig.class,
 })
 public class SubscriptionServiceITest {
+
+    @Autowired
+    private Clock fixedClock;
 
     @Autowired
     private ProductService productService;
@@ -73,8 +77,8 @@ public class SubscriptionServiceITest {
         final var persistedProduct = productService.save(product);
         var subscription = UserSubscription.builder()
                 .product(product)
-                .startDate(LocalDateTime.now())
-                .endDate(LocalDateTime.now().plusMonths(1))
+                .startDate(LocalDateTime.now(fixedClock))
+                .endDate(LocalDateTime.now(fixedClock).plusMonths(1))
                 .userId(userId)
                 .status(status)
                 .build();
@@ -118,8 +122,8 @@ public class SubscriptionServiceITest {
         product = productService.save(product);
         var activeSubscription = UserSubscription.builder()
                 .product(product)
-                .startDate(LocalDateTime.now())
-                .endDate(LocalDateTime.now().plusMonths(1))
+                .startDate(LocalDateTime.now(fixedClock))
+                .endDate(LocalDateTime.now(fixedClock).plusMonths(1))
                 .userId(userId)
                 .status(SubscriptionStatus.ACTIVE)
                 .build();
@@ -164,8 +168,8 @@ public class SubscriptionServiceITest {
         product = productService.save(product);
         var subscription = UserSubscription.builder()
                 .product(product)
-                .startDate(LocalDateTime.now())
-                .endDate(LocalDateTime.now().plusMonths(1))
+                .startDate(LocalDateTime.now(fixedClock))
+                .endDate(LocalDateTime.now(fixedClock).plusMonths(1))
                 .userId(userId)
                 .status(status)
                 .build();
@@ -194,12 +198,16 @@ public class SubscriptionServiceITest {
         product = productService.save(product);
         var pausedSubscription = UserSubscription.builder()
                 .product(product)
-                .startDate(LocalDateTime.now())
-                .endDate(LocalDateTime.now().plusMonths(1))
+                .startDate(LocalDateTime.now(fixedClock).minusDays(2))
+                .endDate(LocalDateTime.now(fixedClock).plusMonths(1))
                 .userId(userId)
                 .status(SubscriptionStatus.PAUSED)
+                .pauseDate(LocalDateTime.now(fixedClock).minusDays(1))
                 .build();
         final var persistedActiveSubscription = subscriptionRepository.save(pausedSubscription);
+        final var expectedEndDate = persistedActiveSubscription
+                .getEndDate()
+                .plus(Duration.between(persistedActiveSubscription.getPauseDate(), LocalDateTime.now(fixedClock)));
 
         //when
         final var actualPausedSubscription = subscriptionService.unpause(persistedActiveSubscription.getId());
@@ -209,6 +217,7 @@ public class SubscriptionServiceITest {
         assertThat(persistedSubscription).isNotEmpty();
         assertThat(persistedSubscription.get()).isEqualTo(actualPausedSubscription);
         assertThat(persistedSubscription.get().getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
+        assertThat(persistedSubscription.get().getEndDate()).isEqualTo(expectedEndDate);
     }
 
     @Test
@@ -240,8 +249,8 @@ public class SubscriptionServiceITest {
         product = productService.save(product);
         var subscription = UserSubscription.builder()
                 .product(product)
-                .startDate(LocalDateTime.now())
-                .endDate(LocalDateTime.now().plusMonths(1))
+                .startDate(LocalDateTime.now(fixedClock))
+                .endDate(LocalDateTime.now(fixedClock).plusMonths(1))
                 .userId(userId)
                 .status(status)
                 .build();
@@ -271,19 +280,15 @@ public class SubscriptionServiceITest {
         final var persistedProduct = productService.save(product);
         var subscription = UserSubscription.builder()
                 .product(persistedProduct)
-                .startDate(LocalDateTime.now())
-                .endDate(LocalDateTime.now().plusMonths(1))
+                .startDate(LocalDateTime.now(fixedClock))
+                .endDate(LocalDateTime.now(fixedClock).plusMonths(1))
                 .userId(userId)
                 .status(subscriptionStatus)
                 .build();
         subscriptionRepository.save(subscription);
 
         //when
-        final var actualSubs = subscriptionService.getUserSubscriptionByUserIdAndStatus(
-                userId,
-                List.of(SubscriptionStatus.ACTIVE,
-                        SubscriptionStatus.PAUSED,
-                        SubscriptionStatus.TRIAL));
+        final var actualSubs = subscriptionService.getActiveUserSubscription(userId);
 
         //then
         assertThat(actualSubs).isNotEmpty();
@@ -304,20 +309,16 @@ public class SubscriptionServiceITest {
         final var persistedProduct = productService.save(product);
         var subscription = UserSubscription.builder()
                 .product(persistedProduct)
-                .startDate(LocalDateTime.now())
-                .endDate(LocalDateTime.now().plusMonths(1))
+                .startDate(LocalDateTime.now(fixedClock))
+                .endDate(LocalDateTime.now(fixedClock).plusMonths(1))
                 .userId(userId)
                 .status(subscriptionStatus)
                 .build();
         subscriptionRepository.save(subscription);
 
         //when
-        final var activeStatuses = List.of(
-                SubscriptionStatus.ACTIVE,
-                SubscriptionStatus.PAUSED,
-                SubscriptionStatus.TRIAL);
         final var actualSubs = subscriptionService
-                .getUserSubscriptionByUserIdAndStatus(userId, activeStatuses);
+                .getActiveUserSubscription(userId);
 
         //then
         assertThat(actualSubs).isEmpty();
@@ -338,8 +339,8 @@ public class SubscriptionServiceITest {
         final var persistedProduct = productService.save(product);
         var subscription = UserSubscription.builder()
                 .product(persistedProduct)
-                .startDate(LocalDateTime.now())
-                .endDate(LocalDateTime.now().plusMonths(1))
+                .startDate(LocalDateTime.now(fixedClock))
+                .endDate(LocalDateTime.now(fixedClock).plusMonths(1))
                 .userId(userId)
                 .status(subscriptionStatus)
                 .build();
@@ -353,7 +354,7 @@ public class SubscriptionServiceITest {
                 SubscriptionStatus.ACTIVE,
                 SubscriptionStatus.PAUSED,
                 SubscriptionStatus.TRIAL);
-        assertThat(subscriptionService.getUserSubscriptionByUserIdAndStatus(userId, cancellableStatuses)).isEmpty();
+        assertThat(subscriptionRepository.findByUserIdAndStatusIn(userId, cancellableStatuses)).isEmpty();
         final var cancelled = subscriptionRepository
                 .findByUserIdAndStatusIn(userId, List.of(SubscriptionStatus.CANCELLED));
         assertThat(cancelled).isNotEmpty();
@@ -374,8 +375,8 @@ public class SubscriptionServiceITest {
         final var persistedProduct = productService.save(product);
         var subscription = UserSubscription.builder()
                 .product(persistedProduct)
-                .startDate(LocalDateTime.now())
-                .endDate(LocalDateTime.now().plusMonths(1))
+                .startDate(LocalDateTime.now(fixedClock))
+                .endDate(LocalDateTime.now(fixedClock).plusMonths(1))
                 .userId(userId)
                 .status(subscriptionStatus)
                 .build();

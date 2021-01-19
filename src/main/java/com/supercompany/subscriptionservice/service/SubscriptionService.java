@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -16,6 +18,7 @@ import java.util.Optional;
 @Service
 public class SubscriptionService {
 
+    private final Clock clock;
     private final ProductService productService;
     private final SubscriptionRepository subscriptionRepository;
 
@@ -46,7 +49,7 @@ public class SubscriptionService {
                 .map(userSubscription -> userSubscription
                         .toBuilder()
                         .status(SubscriptionStatus.PAUSED)
-                        .pauseDate(LocalDateTime.now())
+                        .pauseDate(LocalDateTime.now(clock))
                         .build())
                 .orElseThrow(() -> new InvalidStateToPauseException(subscriptionId, subscription.getStatus()));
         return subscriptionRepository.save(pausedSubscription);
@@ -59,16 +62,19 @@ public class SubscriptionService {
                 .orElseThrow(() -> new SubscriptionNotFoundException(subscriptionId));
         final var pausedSubscription = Optional.of(subscription)
                 .filter(abstractUserSubscription -> SubscriptionStatus.PAUSED.equals(abstractUserSubscription.getStatus()))
+                //I could put below map into a method as {@code UserSubscription.cancel()} , but chose to put all logic in service
                 .map(userSubscription -> userSubscription
                         .toBuilder()
                         .status(SubscriptionStatus.ACTIVE)
-                        .pauseDate(LocalDateTime.now())
+                        .pauseDate(null)
+                        .endDate(userSubscription.getEndDate()
+                                .plus(Duration.between(userSubscription.getPauseDate(), LocalDateTime.now(clock))))
                         .build())
                 .orElseThrow(() -> new InvalidStateToUnpauseException(subscriptionId, subscription.getStatus()));
         return subscriptionRepository.save(pausedSubscription);
     }
 
-    public Optional<UserSubscription> getUserSubscriptionByUserIdAndStatus(final int userId, final List<SubscriptionStatus> statuses) {
+    private Optional<UserSubscription> getUserSubscriptionByUserIdAndStatus(final int userId, final List<SubscriptionStatus> statuses) {
         return subscriptionRepository.findByUserIdAndStatusIn(
                 userId,
                 statuses);
@@ -86,5 +92,12 @@ public class SubscriptionService {
                 .status(SubscriptionStatus.CANCELLED)
                 .build();
         subscriptionRepository.save(cancelledSubscription);
+    }
+
+    public Optional<UserSubscription> getActiveUserSubscription(final int userId) {
+        return getUserSubscriptionByUserIdAndStatus(userId,
+                List.of(SubscriptionStatus.ACTIVE,
+                        SubscriptionStatus.PAUSED,
+                        SubscriptionStatus.TRIAL));
     }
 }

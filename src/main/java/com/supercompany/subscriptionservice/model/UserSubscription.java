@@ -1,5 +1,7 @@
 package com.supercompany.subscriptionservice.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
 import javax.persistence.*;
@@ -10,6 +12,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class UserSubscription {
 
     @Id
@@ -27,6 +30,7 @@ public class UserSubscription {
     @NonNull
     @Enumerated(EnumType.STRING)
     private SubscriptionStatus status;
+    @JsonIgnore
     @Version
     private int version;
 
