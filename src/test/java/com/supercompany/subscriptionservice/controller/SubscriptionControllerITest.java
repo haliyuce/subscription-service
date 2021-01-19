@@ -131,7 +131,7 @@ public class SubscriptionControllerITest {
         mockMvc.perform(post("/subscriptions")
                 .content(subsReq)
                 .contentType(MediaType.APPLICATION_JSON_VALUE))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().is(e.getStatus().value()))
                 .andExpect(status().reason(expectedStr));
 
         //then
@@ -170,7 +170,7 @@ public class SubscriptionControllerITest {
 
         //when
         mockMvc.perform(put("/subscriptions/" + subsId.toString() + "/cancel"))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isNotFound())
                 .andExpect(status().reason("Missing subscription with id:" + subsId));
 
         //then
@@ -229,7 +229,7 @@ public class SubscriptionControllerITest {
         //when
         mockMvc.perform(put("/subscriptions/" + subsId + "/pause")
                 .contentType(MediaType.APPLICATION_JSON_VALUE))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().is(e.getStatus().value()))
                 .andExpect(status().reason(expectedStr));
 
         //then
@@ -275,7 +275,7 @@ public class SubscriptionControllerITest {
         //when
         mockMvc.perform(put("/subscriptions/" + subsId + "/unpause")
                 .contentType(MediaType.APPLICATION_JSON_VALUE))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().is(e.getStatus().value()))
                 .andExpect(status().reason(expectedStr));
 
         //then

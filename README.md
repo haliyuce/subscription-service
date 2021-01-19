@@ -13,6 +13,15 @@ A subscription service for a product that can serve multiple supscription offers
 
 ## Design
 
-Can be seen below. The legend on the design indicates the user stories and scopes of them.
+Can be seen below. Red marked boxes are missing which can be done as illustrated.
 
 <img src="docs/design.png" width="80%"/>
+
+## Api Docs
+
+All has been seen on swagger: http://localhost:8080/swagger-ui/
+
+## Jobs
+
+there is only one job which moves TRIAL subscriptions to ACTIVE if they are not cancelled yet.
+The job class: [TrialToActiveSchedulerService](/src/main/java/com/supercompany/subscriptionservice/service/TrialToActiveSchedulerService.java)

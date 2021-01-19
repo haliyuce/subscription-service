@@ -1,6 +1,7 @@
 package com.supercompany.subscriptionservice.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.supercompany.subscriptionservice.model.converter.PeriodConverter;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -27,6 +28,7 @@ public class Product {
     private String description;
     @NotNull
     @Column(unique = true)
+    @Convert(converter = PeriodConverter.class)
     private Period period;
     @NotNull
     @Column(unique = true)

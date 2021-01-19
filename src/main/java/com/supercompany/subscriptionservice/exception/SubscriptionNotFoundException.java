@@ -7,6 +7,6 @@ import org.springframework.web.server.ResponseStatusException;
 @EqualsAndHashCode
 public class SubscriptionNotFoundException extends ResponseStatusException {
     public SubscriptionNotFoundException(int subscriptionId) {
-        super(HttpStatus.BAD_REQUEST, "Missing subscription with id:" + subscriptionId);
+        super(HttpStatus.NOT_FOUND, "Missing subscription with id:" + subscriptionId);
     }
 }

@@ -7,6 +7,6 @@ import org.springframework.web.server.ResponseStatusException;
 @EqualsAndHashCode
 public class ProductNotFoundException extends ResponseStatusException {
     public ProductNotFoundException(final int productId) {
-        super(HttpStatus.BAD_REQUEST, "No product exists with the id:" + productId);
+        super(HttpStatus.NOT_FOUND, "No product exists with the id:" + productId);
     }
 }

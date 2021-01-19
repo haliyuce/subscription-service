@@ -8,6 +8,7 @@ import com.supercompany.subscriptionservice.model.Product;
 import com.supercompany.subscriptionservice.model.SubscriptionStatus;
 import com.supercompany.subscriptionservice.model.UserSubscription;
 import com.supercompany.subscriptionservice.repository.SubscriptionRepository;
+import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -17,6 +18,7 @@ import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
 import java.time.*;
+import java.util.List;
 
 @DataJpaTest
 @Import({
@@ -381,5 +383,37 @@ public class SubscriptionServiceITest {
 
         //then
         assertThat(actualException).isEqualTo(new InvalidStateToCancelException(userId));
+    }
+
+    @SneakyThrows
+    @Test
+    public void updateExpiredTrialsToActive_works() {
+        //given
+        final int userId = 1;
+        var product = Product.builder()
+                .description("some desc")
+                .name("cool product")
+                .period(Period.ofMonths(3))
+                .price(BigDecimal.TEN)
+                .taxRate(BigDecimal.ONE)
+                .build();
+        final var persistedProduct = productService.save(product);
+        var subscription = UserSubscription.builder()
+                .product(product)
+                .startDate(LocalDateTime.now(fixedClock))
+                .endDate(LocalDateTime.now(fixedClock).plusMonths(1))
+                .userId(userId)
+                .status(SubscriptionStatus.TRIAL)
+                .build();
+        subscription = subscriptionRepository.save(subscription);
+
+        //when
+        subscriptionService.updateExpiredTrialsToActive();
+
+        //then
+        final var expected = subscriptionRepository.findById(subscription.getId());
+        assertThat(expected).isNotEmpty();
+        assertThat(expected.get().getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
+
     }
 }

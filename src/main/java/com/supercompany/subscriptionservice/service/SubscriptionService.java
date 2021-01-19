@@ -36,6 +36,10 @@ public class SubscriptionService {
         final var trialSubscription = UserSubscription.builder()
                 .product(product)
                 .userId(userId)
+                .startDate(LocalDateTime.now(clock))
+                //to add 1 more month for
+                .endDate(LocalDateTime.now(clock).plus(product.getPeriod()).plusMonths(1))
+                .status(SubscriptionStatus.TRIAL)
                 .build();
         return subscriptionRepository.save(trialSubscription);
     }
@@ -103,5 +107,10 @@ public class SubscriptionService {
                 List.of(SubscriptionStatus.ACTIVE,
                         SubscriptionStatus.PAUSED,
                         SubscriptionStatus.TRIAL));
+    }
+
+    @Transactional
+    public void updateExpiredTrialsToActive() {
+        subscriptionRepository.updateExpiredTrialsToActive();
     }
 }
