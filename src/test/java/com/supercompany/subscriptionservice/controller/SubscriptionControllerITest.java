@@ -2,18 +2,15 @@ package com.supercompany.subscriptionservice.controller;
 
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.supercompany.subscriptionservice.exception.ProductNotFoundException;
-import com.supercompany.subscriptionservice.exception.UserAlreadySubscribedException;
+import com.supercompany.subscriptionservice.exception.*;
 import com.supercompany.subscriptionservice.model.Product;
 import com.supercompany.subscriptionservice.model.SubscriptionStatus;
 import com.supercompany.subscriptionservice.model.UserSubscription;
-import com.supercompany.subscriptionservice.service.ProductService;
 import com.supercompany.subscriptionservice.service.SubscriptionService;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
@@ -24,7 +21,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
@@ -34,18 +30,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-@WebMvcTest
-@Import({
-        SubscriptionController.class
-})
+@WebMvcTest(SubscriptionController.class)
 @AutoConfigureMockMvc
 public class SubscriptionControllerITest {
 
     @MockBean
     private SubscriptionService subscriptionService;
-
-    @MockBean
-    private ProductService productService;
 
     @Autowired
     private MockMvc mockMvc;
@@ -76,19 +66,18 @@ public class SubscriptionControllerITest {
         final var expectedJsonStr = "{" +
                 "\"id\":0," +
                 "\"userId\":1," +
-                "\"product\":null," +
                 "\"startDate\":\"" + startDateStr + "\"," +
                 "\"endDate\":\"" + endDateStr + "\"," +
-                "\"pauseDate\":null," +
-                "\"status\":\"ACTIVE\"," +
-                "\"version\":0}";
+                "\"status\":\"ACTIVE\"}";
 
         //when
         mockMvc.perform(get("/subscriptions").param("userId", "" + userId))
                 .andExpect(status().isOk())
-                .andExpect(content().json(expectedJsonStr, true));
+                .andExpect(content().json(expectedJsonStr));
 
         //then
+        verify(subscriptionService).getActiveUserSubscription(userId);
+        verifyNoMoreInteractions(subscriptionService);
     }
 
     @SneakyThrows
@@ -115,12 +104,14 @@ public class SubscriptionControllerITest {
 
         //when
         mockMvc.perform(post("/subscriptions")
-                    .content(subsReq)
-                    .contentType(MediaType.APPLICATION_JSON_VALUE))
+                .content(subsReq)
+                .contentType(MediaType.APPLICATION_JSON_VALUE))
                 .andExpect(status().isCreated())
                 .andExpect(content().json(expectedJsonStr, true));
 
         //then
+        verify(subscriptionService).subscribe(1, 10);
+        verifyNoMoreInteractions(subscriptionService);
     }
 
     @SneakyThrows
@@ -152,4 +143,149 @@ public class SubscriptionControllerITest {
                 Arguments.of(new ProductNotFoundException(1), "No product exists with the id:1"));
     }
 
+    @SneakyThrows
+    @Test
+    public void cancel_works() {
+        //given
+        final var subsId = Integer.valueOf(1);
+
+        //when
+        mockMvc
+                .perform(put("/subscriptions/" + subsId.toString() + "/cancel"))
+                .andExpect(status().isNoContent());
+
+        //then
+        verify(subscriptionService).cancel(subsId);
+        verifyNoMoreInteractions(subscriptionService);
+    }
+
+    @SneakyThrows
+    @Test
+    public void cancel_fails_when_subscription_is_missing() {
+        //given
+        final var subsId = Integer.valueOf(1);
+        doThrow(new SubscriptionNotFoundException(subsId))
+                .when(subscriptionService)
+                .cancel(subsId);
+
+        //when
+        mockMvc.perform(put("/subscriptions/" + subsId.toString() + "/cancel"))
+                .andExpect(status().isBadRequest())
+                .andExpect(status().reason("Missing subscription with id:" + subsId));
+
+        //then
+        verify(subscriptionService).cancel(subsId);
+        verifyNoMoreInteractions(subscriptionService);
+    }
+
+    @SneakyThrows
+    @Test
+    public void cancel_fails_when_subscription_is_not_cancellable() {
+        //given
+        final var subsId = Integer.valueOf(1);
+        doThrow(new InvalidStateToCancelException(subsId))
+                .when(subscriptionService)
+                .cancel(subsId);
+
+        //when
+        mockMvc.perform(put("/subscriptions/" + subsId.toString() + "/cancel"))
+                .andExpect(status().isBadRequest())
+                .andExpect(status().reason("Subscription with id " + subsId + " is not cancellable!"));
+
+        //then
+        verify(subscriptionService).cancel(subsId);
+        verifyNoMoreInteractions(subscriptionService);
+    }
+
+    @SneakyThrows
+    @Test
+    public void pause_works() {
+        //given
+        final var subsId = Integer.valueOf(1);
+        doReturn(mock(UserSubscription.class))
+                .when(subscriptionService)
+                .pause(anyInt());
+
+        //when
+        mockMvc.perform(put("/subscriptions/" + subsId + "/pause"))
+                .andExpect(status().isNoContent());
+
+        //then
+        verify(subscriptionService).pause(subsId);
+        verifyNoMoreInteractions(subscriptionService);
+    }
+
+    @SneakyThrows
+    @ParameterizedTest
+    @MethodSource("possibleExceptionsAndMessagesWhilePause")
+    public void pause_fails_when_service_throws_known_exception(ResponseStatusException e, String expectedStr) {
+        //given
+        final var subsId = Integer.valueOf(1);
+
+        doThrow(e)
+                .when(subscriptionService)
+                .pause(anyInt());
+
+        //when
+        mockMvc.perform(put("/subscriptions/" + subsId + "/pause")
+                .contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(status().isBadRequest())
+                .andExpect(status().reason(expectedStr));
+
+        //then
+        verify(subscriptionService).pause(subsId);
+        verifyNoMoreInteractions(subscriptionService);
+    }
+
+    public static Stream<Arguments> possibleExceptionsAndMessagesWhilePause() {
+        return Stream.of(
+                Arguments.of(new SubscriptionNotFoundException(1), "Missing subscription with id:1"),
+                Arguments.of(new InvalidStateToPauseException(1, SubscriptionStatus.CANCELLED), "Subscription with id 1 is not in ACTIVE but CANCELLED state"));
+    }
+
+    @SneakyThrows
+    @Test
+    public void unpause_works() {
+        //given
+        final var subsId = Integer.valueOf(1);
+        doReturn(mock(UserSubscription.class))
+                .when(subscriptionService)
+                .unpause(anyInt());
+
+        //when
+        mockMvc.perform(put("/subscriptions/" + subsId + "/unpause"))
+                .andExpect(status().isNoContent());
+
+        //then
+        verify(subscriptionService).unpause(subsId);
+        verifyNoMoreInteractions(subscriptionService);
+    }
+
+    @SneakyThrows
+    @ParameterizedTest
+    @MethodSource("possibleExceptionsAndMessagesWhileUnpause")
+    public void unpause_fails_when_service_throws_known_exception(ResponseStatusException e, String expectedStr) {
+        //given
+        final var subsId = Integer.valueOf(1);
+
+        doThrow(e)
+                .when(subscriptionService)
+                .unpause(anyInt());
+
+        //when
+        mockMvc.perform(put("/subscriptions/" + subsId + "/unpause")
+                .contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(status().isBadRequest())
+                .andExpect(status().reason(expectedStr));
+
+        //then
+        verify(subscriptionService).unpause(subsId);
+        verifyNoMoreInteractions(subscriptionService);
+    }
+
+    public static Stream<Arguments> possibleExceptionsAndMessagesWhileUnpause() {
+        return Stream.of(
+                Arguments.of(new SubscriptionNotFoundException(1), "Missing subscription with id:1"),
+                Arguments.of(new InvalidStateToUnpauseException(1, SubscriptionStatus.CANCELLED), "Subscription with id 1 is not in PAUSED but CANCELLED state"));
+    }
 }

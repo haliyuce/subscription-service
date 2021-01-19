@@ -30,4 +30,21 @@ public class SubscriptionController {
                 subscriptionRequest.getProductId());
     }
 
+    @PutMapping("/{subscriptionId}/cancel")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancel(@PathVariable final int subscriptionId) {
+        subscriptionService.cancel(subscriptionId);
+    }
+
+    @PutMapping("/{subscriptionId}/pause")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void pause(@PathVariable final int subscriptionId) {
+        subscriptionService.pause(subscriptionId);
+    }
+
+    @PutMapping("/{subscriptionId}/unpause")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unpause(@PathVariable final int subscriptionId) {
+        subscriptionService.unpause(subscriptionId);
+    }
 }

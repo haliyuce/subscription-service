@@ -13,12 +13,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
 import java.time.*;
-import java.util.List;
 
 @DataJpaTest
 @Import({
@@ -328,7 +326,6 @@ public class SubscriptionServiceITest {
     @EnumSource(value = SubscriptionStatus.class, names = {"ACTIVE", "PAUSED", "TRIAL"})
     public void cancel_works_when_an_active_user_subscription_exists(final SubscriptionStatus subscriptionStatus) {
         //given
-        final int userId = 1;
         var product = Product.builder()
                 .description("some desc")
                 .name("cool product")
@@ -341,22 +338,17 @@ public class SubscriptionServiceITest {
                 .product(persistedProduct)
                 .startDate(LocalDateTime.now(fixedClock))
                 .endDate(LocalDateTime.now(fixedClock).plusMonths(1))
-                .userId(userId)
+                .userId(1)
                 .status(subscriptionStatus)
                 .build();
-        subscriptionRepository.save(subscription);
+        subscription = subscriptionRepository.save(subscription);
 
         //when
-        subscriptionService.cancel(userId);
+        subscriptionService.cancel(subscription.getId());
 
         //then
-        final var cancellableStatuses = List.of(
-                SubscriptionStatus.ACTIVE,
-                SubscriptionStatus.PAUSED,
-                SubscriptionStatus.TRIAL);
-        assertThat(subscriptionRepository.findByUserIdAndStatusIn(userId, cancellableStatuses)).isEmpty();
         final var cancelled = subscriptionRepository
-                .findByUserIdAndStatusIn(userId, List.of(SubscriptionStatus.CANCELLED));
+                .findById(subscription.getId());
         assertThat(cancelled).isNotEmpty();
     }
 
@@ -380,14 +372,14 @@ public class SubscriptionServiceITest {
                 .userId(userId)
                 .status(subscriptionStatus)
                 .build();
-        subscriptionRepository.save(subscription);
+        final var persistedSubscription = subscriptionRepository.save(subscription);
 
         //when
         final var actualException = assertThrows(
-                UserHasNoActiveSubscriptionException.class,
-                () -> subscriptionService.cancel(userId));
+                InvalidStateToCancelException.class,
+                () -> subscriptionService.cancel(persistedSubscription.getId()));
 
         //then
-        assertThat(actualException).isEqualTo(new UserHasNoActiveSubscriptionException(userId));
+        assertThat(actualException).isEqualTo(new InvalidStateToCancelException(userId));
     }
 }

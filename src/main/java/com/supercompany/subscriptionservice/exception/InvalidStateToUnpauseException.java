@@ -13,6 +13,6 @@ public class InvalidStateToUnpauseException extends ResponseStatusException {
             @NonNull final SubscriptionStatus status) {
         super(
                 HttpStatus.BAD_REQUEST,
-                "Subscription with id " + subscriptionId + "is not in ACTIVE but " + status + " state");
+                "Subscription with id " + subscriptionId + " is not in PAUSED but " + status + " state");
     }
 }

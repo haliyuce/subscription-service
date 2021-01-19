@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @RequiredArgsConstructor
 @Service
@@ -81,13 +82,16 @@ public class SubscriptionService {
     }
 
     @Transactional
-    public void cancel(final int userId) {
-        final var cancellableStatuses = List.of(
+    public void cancel(final int subscriptionId) {
+        final var cancellableStatuses = Set.of(
                 SubscriptionStatus.ACTIVE,
                 SubscriptionStatus.PAUSED,
                 SubscriptionStatus.TRIAL);
-        final var userSubscription = getUserSubscriptionByUserIdAndStatus(userId, cancellableStatuses)
-                .orElseThrow(() -> new UserHasNoActiveSubscriptionException(userId));
+        final var userSubscription = subscriptionRepository.findById(subscriptionId)
+                .orElseThrow(() -> new SubscriptionNotFoundException(subscriptionId));
+        Optional.of(userSubscription)
+                .filter(subs -> cancellableStatuses.contains(subs.getStatus()))
+                .orElseThrow(() -> new InvalidStateToCancelException(subscriptionId));
         final var cancelledSubscription = userSubscription.toBuilder()
                 .status(SubscriptionStatus.CANCELLED)
                 .build();
